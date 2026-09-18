@@ -19,7 +19,7 @@ app.add_middleware(
 
 MANIFEST = {
     "id": "org.tomandjerry.classic",
-    "version": "2.2.0",
+    "version": "2.3.0",
     "name": "Tom & Jerry (Classic)",
     "description": "Tom & Jerry Classic Collection",
     "resources": ["catalog", "meta", "stream"],
@@ -220,15 +220,20 @@ EPISODE_TITLES = [
 # ARCHIVE
 # =========================================================
 
-ARCHIVE_ITEM = "tom_and_jerry_1940_1958"
+ARCHIVE_ITEM = "tom-and-jerry-classic-collection"
 
 EPISODES_CACHE = {}
 
+HEADERS = {
+    "User-Agent": "TomJerry-Stremio-Addon/2.3"
+}
+
+CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*"
+}
+
 
 def get_archive_episodes():
-    """
-    Get available MP4 files from Internet Archive metadata.
-    """
 
     global EPISODES_CACHE
 
@@ -236,58 +241,63 @@ def get_archive_episodes():
         return EPISODES_CACHE
 
     try:
+
         url = f"https://archive.org/metadata/{ARCHIVE_ITEM}"
 
-        response = requests.get(
+        res = requests.get(
             url,
-            timeout=15,
-            headers={
-                "User-Agent": "TomJerry-Stremio-Addon/2.2"
-            }
+            headers=HEADERS,
+            timeout=15
         )
 
-        response.raise_for_status()
+        if res.status_code == 200:
 
-        data = response.json()
-        files = data.get("files", [])
+            data = res.json()
 
-        mp4_files = []
+            files = data.get("files", [])
 
-        for file_info in files:
-            filename = file_info.get("name", "")
+            mp4_files = [
+                f for f in files
+                if f.get("name", "").lower().endswith(".mp4")
+            ]
 
-            if filename.lower().endswith(".mp4"):
-                mp4_files.append(file_info)
+            mp4_files.sort(
+                key=lambda x: x.get("name", "").lower()
+            )
 
-        mp4_files.sort(
-            key=lambda x: x.get("name", "").lower()
+            for idx, file_info in enumerate(
+                mp4_files,
+                start=1
+            ):
+
+                name = file_info.get("name")
+
+                if not name:
+                    continue
+
+                # ترميز الفراغات في الاسم
+                name_encoded = requests.utils.quote(
+                    name,
+                    safe="/"
+                )
+
+                download_url = (
+                    f"https://archive.org/download/"
+                    f"{ARCHIVE_ITEM}/"
+                    f"{name_encoded}"
+                )
+
+                EPISODES_CACHE[idx] = {
+                    "ep": idx,
+                    "filename": name,
+                    "url": download_url
+                }
+
+    except Exception as e:
+
+        print(
+            f"Archive fetch error: {e}"
         )
-
-        for index, file_info in enumerate(mp4_files, start=1):
-
-            filename = file_info.get("name")
-
-            if not filename:
-                continue
-
-            filename_encoded = requests.utils.quote(
-                filename,
-                safe="/"
-            )
-
-            download_url = (
-                f"https://archive.org/download/"
-                f"{ARCHIVE_ITEM}/{filename_encoded}"
-            )
-
-            EPISODES_CACHE[index] = {
-                "ep": index,
-                "filename": filename,
-                "url": download_url
-            }
-
-    except Exception as error:
-        print("Archive error:", error)
 
     return EPISODES_CACHE
 
@@ -388,56 +398,77 @@ def get_meta(id: str):
 # =========================================================
 
 @app.get("/stream/series/{id}.json")
-def get_streams(request: Request, id: str):
+def get_streams(
+    request: Request,
+    id: str
+):
 
     streams = []
 
     try:
 
-        clean_id = id.replace(".json", "")
+        clean_id = id.replace(
+            ".json",
+            ""
+        )
+
         parts = clean_id.split(":")
 
         if len(parts) < 3:
-            return Response(
-                content=json.dumps(
-                    {"streams": []}
-                ),
-                media_type="application/json"
-            )
 
-        ep_num = int(parts[2])
-
-        if ep_num < 1 or ep_num > len(EPISODE_TITLES):
-            return Response(
-                content=json.dumps(
-                    {"streams": []}
-                ),
-                media_type="application/json"
-            )
-
-        episodes = get_archive_episodes()
-
-        episode = episodes.get(ep_num)
-
-        if not episode:
             return Response(
                 content=json.dumps(
                     {"streams": []},
                     ensure_ascii=False
                 ),
-                media_type="application/json"
+                media_type="application/json",
+                headers=CORS_HEADERS
+            )
+
+        ep_num = int(parts[2])
+
+        if ep_num < 1:
+
+            return Response(
+                content=json.dumps(
+                    {"streams": []},
+                    ensure_ascii=False
+                ),
+                media_type="application/json",
+                headers=CORS_HEADERS
+            )
+
+        # جلب ملفات Archive
+        episodes = get_archive_episodes()
+
+        episode = episodes.get(ep_num)
+
+        if not episode:
+
+            return Response(
+                content=json.dumps(
+                    {"streams": []},
+                    ensure_ascii=False
+                ),
+                media_type="application/json",
+                headers=CORS_HEADERS
             )
 
         mp4_url = episode["url"]
-        episode_name = EPISODE_TITLES[ep_num - 1]
+
+        if ep_num <= len(EPISODE_TITLES):
+            ep_name = EPISODE_TITLES[ep_num - 1]
+        else:
+            ep_name = f"Episode {ep_num}"
 
         streams.append({
             "name": "Direct MP4",
             "title": (
-                f"تشغيل مباشر - "
-                f"{episode_name}"
+                f"الحلقة {ep_num} - "
+                f"{ep_name}"
             ),
             "url": mp4_url,
+            "type": "video/mp4",
             "behaviorHints": {
                 "notWebReady": False
             }
@@ -445,14 +476,20 @@ def get_streams(request: Request, id: str):
 
     except Exception as error:
 
-        print("Stream error:", error)
+        print(
+            "Stream error:",
+            error
+        )
 
     return Response(
         content=json.dumps(
-            {"streams": streams},
+            {
+                "streams": streams
+            },
             ensure_ascii=False
         ),
-        media_type="application/json"
+        media_type="application/json",
+        headers=CORS_HEADERS
     )
 
 
