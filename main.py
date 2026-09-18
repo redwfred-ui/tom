@@ -1,4 +1,3 @@
-```python
 from fastapi import FastAPI, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 import json
@@ -20,7 +19,7 @@ app.add_middleware(
 
 MANIFEST = {
     "id": "org.tomandjerry.classic",
-    "version": "2.3.1",
+    "version": "2.3.0",
     "name": "Tom & Jerry (Classic)",
     "description": "Tom & Jerry Classic Collection",
     "resources": ["catalog", "meta", "stream"],
@@ -39,27 +38,23 @@ MANIFEST = {
 # SERIES IMAGES
 # =========================================================
 
-# استخدام Special:Redirect/file يجعل Wikimedia يعيد
-# توجيه الرابط إلى الملف الفعلي بشكل مباشر.
-
+# الصورة التي أرسلتها
 SERIES_POSTER = (
-    "https://commons.wikimedia.org/wiki/Special:Redirect/file/"
-    "Tom_And_Jerry.jpg"
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSuK5if6QyAKZnww7eUfkuadjVCmvodizQnPQSfvEypEQ&s=10"
 )
 
 SERIES_BACKGROUND = (
-    "https://commons.wikimedia.org/wiki/Special:Redirect/file/"
-    "Tom_And_Jerry.jpg"
+    "https://images.wallpapersden.com/image/download/"
+    "tom-and-jerry-art_bGdpZm2UmZqaraWkpJRmZmdlrWZnZWU.jpg"
 )
 
 SERIES_LOGO = (
-    "https://commons.wikimedia.org/wiki/Special:Redirect/file/"
-    "Tom_and_Jerry_in_the_Hollywood_Bowl_title_card_001.png"
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/"
+    "Tom_and_Jerry_logo.svg/1200px-Tom_and_Jerry_logo.svg.png"
 )
 
 # صورة الحلقات
 EPISODE_THUMBNAIL = SERIES_POSTER
-
 
 # =========================================================
 # EPISODE TITLES
@@ -224,7 +219,6 @@ EPISODE_TITLES = [
     "Purr-Chance to Dream"
 ]
 
-
 # =========================================================
 # ARCHIVE
 # =========================================================
@@ -234,7 +228,7 @@ ARCHIVE_ITEM = "tom-and-jerry-classic-collection"
 EPISODES_CACHE = {}
 
 HEADERS = {
-    "User-Agent": "TomJerry-Stremio-Addon/2.3.1"
+    "User-Agent": "TomJerry-Stremio-Addon/2.3"
 }
 
 CORS_HEADERS = {
@@ -262,7 +256,6 @@ def get_archive_episodes():
         if res.status_code == 200:
 
             data = res.json()
-
             files = data.get("files", [])
 
             mp4_files = [
@@ -304,15 +297,13 @@ def get_archive_episodes():
 
     except Exception as e:
 
-        print(
-            f"Archive fetch error: {e}"
-        )
+        print(f"Archive fetch error: {e}")
 
     return EPISODES_CACHE
 
 
 # =========================================================
-# MANIFEST ENDPOINT
+# MANIFEST
 # =========================================================
 
 @app.get("/manifest.json")
@@ -337,20 +328,16 @@ def get_catalog():
 
     meta = {
         "id": "tj_classic_1940",
-
         "type": "series",
-
         "name": "Tom and Jerry: The Classic Collection",
 
-        # صورة الـCatalog
+        # صورة الـ Catalog
         "poster": SERIES_POSTER,
 
         "posterShape": "poster",
 
-        # خلفية صفحة السلسلة
         "background": SERIES_BACKGROUND,
 
-        # شعار السلسلة
         "logo": SERIES_LOGO,
 
         "description": (
@@ -406,7 +393,7 @@ def get_meta(id: str):
             # صورة الحلقة
             "thumbnail": EPISODE_THUMBNAIL,
 
-            # وصف الحلقة
+            # الوصف
             "overview": episode_description,
 
             "description": episode_description
@@ -423,6 +410,7 @@ def get_meta(id: str):
             "The Classic Collection"
         ),
 
+        # صورة السلسلة
         "poster": SERIES_POSTER,
 
         "posterShape": "poster",
@@ -477,9 +465,7 @@ def get_streams(
 
             return Response(
                 content=json.dumps(
-                    {
-                        "streams": []
-                    },
+                    {"streams": []},
                     ensure_ascii=False
                 ),
                 media_type="application/json",
@@ -492,9 +478,7 @@ def get_streams(
 
             return Response(
                 content=json.dumps(
-                    {
-                        "streams": []
-                    },
+                    {"streams": []},
                     ensure_ascii=False
                 ),
                 media_type="application/json",
@@ -509,9 +493,7 @@ def get_streams(
 
             return Response(
                 content=json.dumps(
-                    {
-                        "streams": []
-                    },
+                    {"streams": []},
                     ensure_ascii=False
                 ),
                 media_type="application/json",
@@ -528,9 +510,7 @@ def get_streams(
 
         else:
 
-            ep_name = (
-                f"Episode {ep_num}"
-            )
+            ep_name = f"Episode {ep_num}"
 
         streams.append({
 
@@ -578,14 +558,9 @@ def home():
 
     return {
         "status": "online",
-
         "addon": "Tom & Jerry Classic",
-
         "version": MANIFEST["version"],
-
-        "episodes": len(
-            EPISODE_TITLES
-        )
+        "episodes": len(EPISODE_TITLES)
     }
 
 
@@ -594,11 +569,6 @@ def health():
 
     return {
         "status": "ok",
-
         "version": MANIFEST["version"],
-
-        "episodes": len(
-            EPISODE_TITLES
-        )
+        "episodes": len(EPISODE_TITLES)
     }
-```
