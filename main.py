@@ -53,6 +53,9 @@ SERIES_LOGO = (
     "Tom_and_Jerry_logo.svg/1200px-Tom_and_Jerry_logo.svg.png"
 )
 
+# صورة الحلقات
+EPISODE_THUMBNAIL = SERIES_POSTER
+
 # =========================================================
 # EPISODE TITLES
 # =========================================================
@@ -257,7 +260,8 @@ def get_archive_episodes():
             files = data.get("files", [])
 
             mp4_files = [
-                f for f in files
+                f
+                for f in files
                 if f.get("name", "").lower().endswith(".mp4")
             ]
 
@@ -314,7 +318,8 @@ def get_manifest():
             MANIFEST,
             ensure_ascii=False
         ),
-        media_type="application/json"
+        media_type="application/json",
+        headers=CORS_HEADERS
     )
 
 
@@ -329,9 +334,19 @@ def get_catalog():
         "id": "tj_classic_1940",
         "type": "series",
         "name": "Tom and Jerry: The Classic Collection",
+
+        # صورة الـ Catalog
         "poster": SERIES_POSTER,
+
+        # شكل صورة الـ Catalog
+        "posterShape": "poster",
+
+        # خلفية صفحة السلسلة
         "background": SERIES_BACKGROUND,
+
+        # شعار السلسلة
         "logo": SERIES_LOGO,
+
         "description": (
             "Tom and Jerry Classic Collection (1940-1958)"
         )
@@ -339,10 +354,13 @@ def get_catalog():
 
     return Response(
         content=json.dumps(
-            {"metas": [meta]},
+            {
+                "metas": [meta]
+            },
             ensure_ascii=False
         ),
-        media_type="application/json"
+        media_type="application/json",
+        headers=CORS_HEADERS
     )
 
 
@@ -360,36 +378,74 @@ def get_meta(id: str):
         start=1
     ):
 
+        # وصف الحلقة
+        episode_description = (
+            f"Tom and Jerry Classic - "
+            f"Episode {i}: {title_en}. "
+            f"A classic Tom and Jerry cartoon featuring "
+            f"Tom and Jerry in another comic adventure."
+        )
+
         videos.append({
             "id": f"tj_classic_1940:1:{i}",
-            "title": f"الحلقة {i}: {title_en}",
+
+            "title": (
+                f"الحلقة {i}: {title_en}"
+            ),
+
             "season": 1,
+
             "episode": i,
-            "overview": (
-                f"Tom and Jerry Classic - "
-                f"Episode {i}: {title_en}"
-            )
+
+            # صورة الحلقة
+            "thumbnail": EPISODE_THUMBNAIL,
+
+            # وصف الحلقة
+            "overview": episode_description,
+
+            "description": episode_description
         })
 
     meta_data = {
+
         "id": "tj_classic_1940",
+
         "type": "series",
-        "name": "Tom and Jerry: The Classic Collection",
-        "poster": SERIES_POSTER,
-        "background": SERIES_BACKGROUND,
-        "logo": SERIES_LOGO,
-        "description": (
-            "Tom and Jerry Classic Collection"
+
+        "name": (
+            "Tom and Jerry: "
+            "The Classic Collection"
         ),
+
+        # صورة السلسلة
+        "poster": SERIES_POSTER,
+
+        "posterShape": "poster",
+
+        # خلفية السلسلة
+        "background": SERIES_BACKGROUND,
+
+        # الشعار
+        "logo": SERIES_LOGO,
+
+        "description": (
+            "Tom and Jerry Classic Collection "
+            "(1940-1958). A collection of classic "
+            "Tom and Jerry animated shorts."
+        ),
+
         "videos": videos
     }
 
     return Response(
         content=json.dumps(
-            {"meta": meta_data},
+            {
+                "meta": meta_data
+            },
             ensure_ascii=False
         ),
-        media_type="application/json"
+        media_type="application/json",
+        headers=CORS_HEADERS
     )
 
 
@@ -418,7 +474,9 @@ def get_streams(
 
             return Response(
                 content=json.dumps(
-                    {"streams": []},
+                    {
+                        "streams": []
+                    },
                     ensure_ascii=False
                 ),
                 media_type="application/json",
@@ -431,14 +489,16 @@ def get_streams(
 
             return Response(
                 content=json.dumps(
-                    {"streams": []},
+                    {
+                        "streams": []
+                    },
                     ensure_ascii=False
                 ),
                 media_type="application/json",
                 headers=CORS_HEADERS
             )
 
-        # جلب ملفات Archive
+        # جلب حلقات Archive
         episodes = get_archive_episodes()
 
         episode = episodes.get(ep_num)
@@ -447,28 +507,44 @@ def get_streams(
 
             return Response(
                 content=json.dumps(
-                    {"streams": []},
+                    {
+                        "streams": []
+                    },
                     ensure_ascii=False
                 ),
                 media_type="application/json",
                 headers=CORS_HEADERS
             )
 
+        # رابط MP4 المباشر
         mp4_url = episode["url"]
 
+        # اسم الحلقة
         if ep_num <= len(EPISODE_TITLES):
-            ep_name = EPISODE_TITLES[ep_num - 1]
+
+            ep_name = EPISODE_TITLES[
+                ep_num - 1
+            ]
+
         else:
-            ep_name = f"Episode {ep_num}"
+
+            ep_name = (
+                f"Episode {ep_num}"
+            )
 
         streams.append({
+
             "name": "Direct MP4",
+
             "title": (
                 f"الحلقة {ep_num} - "
                 f"{ep_name}"
             ),
+
             "url": mp4_url,
+
             "type": "video/mp4",
+
             "behaviorHints": {
                 "notWebReady": False
             }
@@ -502,9 +578,18 @@ def home():
 
     return {
         "status": "online",
-        "addon": "Tom & Jerry Classic",
-        "version": MANIFEST["version"],
-        "episodes": len(EPISODE_TITLES)
+
+        "addon": (
+            "Tom & Jerry Classic"
+        ),
+
+        "version": MANIFEST[
+            "version"
+        ],
+
+        "episodes": len(
+            EPISODE_TITLES
+        )
     }
 
 
@@ -513,5 +598,12 @@ def health():
 
     return {
         "status": "ok",
-        "episodes": len(EPISODE_TITLES)
+
+        "version": MANIFEST[
+            "version"
+        ],
+
+        "episodes": len(
+            EPISODE_TITLES
+        )
     }
