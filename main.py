@@ -1,3 +1,4 @@
+```python
 from fastapi import FastAPI, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 import json
@@ -19,7 +20,7 @@ app.add_middleware(
 
 MANIFEST = {
     "id": "org.tomandjerry.classic",
-    "version": "2.3.0",
+    "version": "2.3.1",
     "name": "Tom & Jerry (Classic)",
     "description": "Tom & Jerry Classic Collection",
     "resources": ["catalog", "meta", "stream"],
@@ -38,23 +39,27 @@ MANIFEST = {
 # SERIES IMAGES
 # =========================================================
 
+# استخدام Special:Redirect/file يجعل Wikimedia يعيد
+# توجيه الرابط إلى الملف الفعلي بشكل مباشر.
+
 SERIES_POSTER = (
-    "https://upload.wikimedia.org/wikipedia/en/5/5f/"
-    "Tom_and_Jerry_title_card.png"
+    "https://commons.wikimedia.org/wiki/Special:Redirect/file/"
+    "Tom_And_Jerry.jpg"
 )
 
 SERIES_BACKGROUND = (
-    "https://images.wallpapersden.com/image/download/"
-    "tom-and-jerry-art_bGdpZm2UmZqaraWkpJRmZmdlrWZnZWU.jpg"
+    "https://commons.wikimedia.org/wiki/Special:Redirect/file/"
+    "Tom_And_Jerry.jpg"
 )
 
 SERIES_LOGO = (
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/"
-    "Tom_and_Jerry_logo.svg/1200px-Tom_and_Jerry_logo.svg.png"
+    "https://commons.wikimedia.org/wiki/Special:Redirect/file/"
+    "Tom_and_Jerry_in_the_Hollywood_Bowl_title_card_001.png"
 )
 
 # صورة الحلقات
 EPISODE_THUMBNAIL = SERIES_POSTER
+
 
 # =========================================================
 # EPISODE TITLES
@@ -219,6 +224,7 @@ EPISODE_TITLES = [
     "Purr-Chance to Dream"
 ]
 
+
 # =========================================================
 # ARCHIVE
 # =========================================================
@@ -228,7 +234,7 @@ ARCHIVE_ITEM = "tom-and-jerry-classic-collection"
 EPISODES_CACHE = {}
 
 HEADERS = {
-    "User-Agent": "TomJerry-Stremio-Addon/2.3"
+    "User-Agent": "TomJerry-Stremio-Addon/2.3.1"
 }
 
 CORS_HEADERS = {
@@ -279,7 +285,6 @@ def get_archive_episodes():
                 if not name:
                     continue
 
-                # ترميز الفراغات في الاسم
                 name_encoded = requests.utils.quote(
                     name,
                     safe="/"
@@ -332,13 +337,14 @@ def get_catalog():
 
     meta = {
         "id": "tj_classic_1940",
+
         "type": "series",
+
         "name": "Tom and Jerry: The Classic Collection",
 
-        # صورة الـ Catalog
+        # صورة الـCatalog
         "poster": SERIES_POSTER,
 
-        # شكل صورة الـ Catalog
         "posterShape": "poster",
 
         # خلفية صفحة السلسلة
@@ -378,7 +384,6 @@ def get_meta(id: str):
         start=1
     ):
 
-        # وصف الحلقة
         episode_description = (
             f"Tom and Jerry Classic - "
             f"Episode {i}: {title_en}. "
@@ -387,6 +392,7 @@ def get_meta(id: str):
         )
 
         videos.append({
+
             "id": f"tj_classic_1940:1:{i}",
 
             "title": (
@@ -417,15 +423,12 @@ def get_meta(id: str):
             "The Classic Collection"
         ),
 
-        # صورة السلسلة
         "poster": SERIES_POSTER,
 
         "posterShape": "poster",
 
-        # خلفية السلسلة
         "background": SERIES_BACKGROUND,
 
-        # الشعار
         "logo": SERIES_LOGO,
 
         "description": (
@@ -498,7 +501,6 @@ def get_streams(
                 headers=CORS_HEADERS
             )
 
-        # جلب حلقات Archive
         episodes = get_archive_episodes()
 
         episode = episodes.get(ep_num)
@@ -516,10 +518,8 @@ def get_streams(
                 headers=CORS_HEADERS
             )
 
-        # رابط MP4 المباشر
         mp4_url = episode["url"]
 
-        # اسم الحلقة
         if ep_num <= len(EPISODE_TITLES):
 
             ep_name = EPISODE_TITLES[
@@ -579,13 +579,9 @@ def home():
     return {
         "status": "online",
 
-        "addon": (
-            "Tom & Jerry Classic"
-        ),
+        "addon": "Tom & Jerry Classic",
 
-        "version": MANIFEST[
-            "version"
-        ],
+        "version": MANIFEST["version"],
 
         "episodes": len(
             EPISODE_TITLES
@@ -599,11 +595,10 @@ def health():
     return {
         "status": "ok",
 
-        "version": MANIFEST[
-            "version"
-        ],
+        "version": MANIFEST["version"],
 
         "episodes": len(
             EPISODE_TITLES
         )
     }
+```
