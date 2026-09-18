@@ -1,9 +1,7 @@
-import json
-import requests
-
 from fastapi import FastAPI, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
-
+import json
+import requests
 
 app = FastAPI()
 
@@ -15,63 +13,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 # =========================================================
 # MANIFEST
 # =========================================================
 
 MANIFEST = {
-    "id": "org.tomandjerry.classic.nuvio",
+    "id": "org.tomandjerry.classic",
     "version": "2.2.0",
-    "name": "Tom & Jerry Classic",
-    "description": "Tom & Jerry Classic Collection - 161 episodes",
-    "resources": [
-        "catalog",
-        "meta",
-        "stream"
-    ],
-    "types": [
-        "series"
-    ],
-    "idPrefixes": [
-        "tj_classic_"
-    ],
+    "name": "Tom & Jerry (Classic)",
+    "description": "Tom & Jerry Classic Collection",
+    "resources": ["catalog", "meta", "stream"],
+    "types": ["series"],
+    "idPrefixes": ["tj_classic"],
     "catalogs": [
         {
             "type": "series",
             "id": "tj_catalog",
-            "name": "توم وجيري الكلاسيكي"
+            "name": "Tom & Jerry - Classic"
         }
     ]
 }
 
-
-# =========================================================
-# HEADERS
-# =========================================================
-
-CORS_HEADERS = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "*",
-    "Content-Type": "application/json; charset=utf-8"
-}
-
-
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 "
-        "(KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
-    )
-}
-
-
 # =========================================================
 # SERIES IMAGES
-# الصور تظهر للكتالوج والمسلسل فقط
-# ولن نضع thumbnails للحلقات
 # =========================================================
 
 SERIES_POSTER = (
@@ -89,16 +53,6 @@ SERIES_LOGO = (
     "Tom_and_Jerry_logo.svg/1200px-Tom_and_Jerry_logo.svg.png"
 )
 
-
-# =========================================================
-# ARCHIVE.ORG
-# =========================================================
-
-ARCHIVE_ITEM = "tom_and_jerry_1940_1958"
-
-EPISODES_CACHE = {}
-
-
 # =========================================================
 # EPISODE TITLES
 # =========================================================
@@ -110,10 +64,10 @@ EPISODE_TITLES = [
     "Fraidy Cat",
     "Dog Trouble",
     "Puss n' Toots",
-    "The Bowling Alley-Cat",
+    "The Bowling Alley Cat",
     "Fine Feathered Friend",
     "Sufferin' Cats!",
-    "Lonesome Mouse",
+    "The Lonesome Mouse",
     "The Yankee Doodle Mouse",
     "Baby Puss",
     "The Zoot Cat",
@@ -189,9 +143,9 @@ EPISODE_TITLES = [
     "Baby Butch",
     "Mice Follies",
     "Neapolitan Mouse",
-    "Downheart Duckling",
+    "Downhearted Duckling",
     "Pet Snack",
-    "Touche, Pussy Cat!",
+    "Touché, Pussy Cat!",
     "Southbound Duckling",
     "Pup on a Leash",
     "Designing Mice",
@@ -262,12 +216,19 @@ EPISODE_TITLES = [
     "Purr-Chance to Dream"
 ]
 
+# =========================================================
+# ARCHIVE
+# =========================================================
 
-# =========================================================
-# GET ARCHIVE EPISODES
-# =========================================================
+ARCHIVE_ITEM = "tom_and_jerry_1940_1958"
+
+EPISODES_CACHE = {}
+
 
 def get_archive_episodes():
+    """
+    Get available MP4 files from Internet Archive metadata.
+    """
 
     global EPISODES_CACHE
 
@@ -275,96 +236,64 @@ def get_archive_episodes():
         return EPISODES_CACHE
 
     try:
-
         url = f"https://archive.org/metadata/{ARCHIVE_ITEM}"
 
-        res = requests.get(
+        response = requests.get(
             url,
-            headers=HEADERS,
-            timeout=10
+            timeout=15,
+            headers={
+                "User-Agent": "TomJerry-Stremio-Addon/2.2"
+            }
         )
 
-        if res.status_code == 200:
+        response.raise_for_status()
 
-            data = res.json()
+        data = response.json()
+        files = data.get("files", [])
 
-            files = data.get("files", [])
+        mp4_files = []
 
-            mp4_files = [
-                f for f in files
-                if f.get("name", "").lower().endswith(".mp4")
-            ]
+        for file_info in files:
+            filename = file_info.get("name", "")
 
-            mp4_files.sort(
-                key=lambda x: x.get("name", "")
+            if filename.lower().endswith(".mp4"):
+                mp4_files.append(file_info)
+
+        mp4_files.sort(
+            key=lambda x: x.get("name", "").lower()
+        )
+
+        for index, file_info in enumerate(mp4_files, start=1):
+
+            filename = file_info.get("name")
+
+            if not filename:
+                continue
+
+            filename_encoded = requests.utils.quote(
+                filename,
+                safe="/"
             )
 
-            for idx, file_info in enumerate(
-                mp4_files,
-                start=1
-            ):
+            download_url = (
+                f"https://archive.org/download/"
+                f"{ARCHIVE_ITEM}/{filename_encoded}"
+            )
 
-                file_name = file_info["name"]
+            EPISODES_CACHE[index] = {
+                "ep": index,
+                "filename": filename,
+                "url": download_url
+            }
 
-                clean_title = (
-                    file_name
-                    .rsplit(".", 1)[0]
-                    .replace("_", " ")
-                )
-
-                download_url = (
-                    f"https://archive.org/download/"
-                    f"{ARCHIVE_ITEM}/"
-                    f"{file_name}"
-                )
-
-                EPISODES_CACHE[idx] = {
-                    "ep": idx,
-                    "title": clean_title,
-                    "url": download_url
-                }
-
-    except Exception as e:
-
-        print(
-            f"Archive metadata error: {e}"
-        )
+    except Exception as error:
+        print("Archive error:", error)
 
     return EPISODES_CACHE
 
 
 # =========================================================
-# OPTIONS / CORS
-# =========================================================
-
-@app.options("/{full_path:path}")
-def options_handler(full_path: str):
-
-    return Response(
-        status_code=200,
-        headers=CORS_HEADERS
-    )
-
-
-# =========================================================
-# ROOT
-# =========================================================
-
-@app.get("/")
-def root():
-
-    return Response(
-        content=json.dumps({
-            "status": "Active",
-            "addon": "Tom & Jerry Classic",
-            "episodes": 161
-        }),
-        headers=CORS_HEADERS
-    )
-
-
-# =========================================================
-# MANIFEST
+# MANIFEST ENDPOINT
 # =========================================================
 
 @app.get("/manifest.json")
@@ -375,13 +304,12 @@ def get_manifest():
             MANIFEST,
             ensure_ascii=False
         ),
-        headers=CORS_HEADERS
+        media_type="application/json"
     )
 
 
 # =========================================================
 # CATALOG
-# صورة واحدة للمسلسل
 # =========================================================
 
 @app.get("/catalog/series/tj_catalog.json")
@@ -391,30 +319,25 @@ def get_catalog():
         "id": "tj_classic_1940",
         "type": "series",
         "name": "Tom and Jerry: The Classic Collection",
-
         "poster": SERIES_POSTER,
         "background": SERIES_BACKGROUND,
         "logo": SERIES_LOGO,
-
         "description": (
-            "جميع حلقات توم وجيري الكلاسيكية."
+            "Tom and Jerry Classic Collection (1940-1958)"
         )
     }
 
     return Response(
         content=json.dumps(
-            {
-                "metas": [meta]
-            },
+            {"metas": [meta]},
             ensure_ascii=False
         ),
-        headers=CORS_HEADERS
+        media_type="application/json"
     )
 
 
 # =========================================================
 # META
-# لا توجد thumbnail للحلقات
 # =========================================================
 
 @app.get("/meta/series/{id}.json")
@@ -422,29 +345,19 @@ def get_meta(id: str):
 
     videos = []
 
-    for i in range(1, 162):
-
-        if i <= len(EPISODE_TITLES):
-
-            title_str = (
-                f"الحلقة {i}: "
-                f"{EPISODE_TITLES[i - 1]}"
-            )
-
-        else:
-
-            title_str = (
-                f"الحلقة {i}: "
-                f"Tom & Jerry Classic"
-            )
+    for i, title_en in enumerate(
+        EPISODE_TITLES,
+        start=1
+    ):
 
         videos.append({
             "id": f"tj_classic_1940:1:{i}",
-            "title": title_str,
+            "title": f"الحلقة {i}: {title_en}",
             "season": 1,
             "episode": i,
             "overview": (
-                f"الحلقة الكلاسيكية رقم {i}."
+                f"Tom and Jerry Classic - "
+                f"Episode {i}: {title_en}"
             )
         })
 
@@ -452,118 +365,116 @@ def get_meta(id: str):
         "id": "tj_classic_1940",
         "type": "series",
         "name": "Tom and Jerry: The Classic Collection",
-
         "poster": SERIES_POSTER,
         "background": SERIES_BACKGROUND,
         "logo": SERIES_LOGO,
-
         "description": (
-            "المجموعة الكلاسيكية الكاملة."
+            "Tom and Jerry Classic Collection"
         ),
-
         "videos": videos
     }
 
     return Response(
         content=json.dumps(
-            {
-                "meta": meta_data
-            },
+            {"meta": meta_data},
             ensure_ascii=False
         ),
-        headers=CORS_HEADERS
+        media_type="application/json"
     )
 
 
 # =========================================================
 # STREAM
-#
-# مهم:
-# لا يوجد Redirect
-# لا يوجد /play
-# نرجع رابط MP4 مباشرة إلى Stremio/Nuvio
 # =========================================================
 
 @app.get("/stream/series/{id}.json")
-def get_streams(
-    request: Request,
-    id: str
-):
-
-    clean_id = id.replace(
-        ".json",
-        ""
-    )
-
-    parts = clean_id.split(":")
+def get_streams(request: Request, id: str):
 
     streams = []
 
-    if len(parts) >= 3:
+    try:
 
-        try:
+        clean_id = id.replace(".json", "")
+        parts = clean_id.split(":")
 
-            ep_num = int(parts[2])
-
-            if ep_num < 1 or ep_num > 161:
-
-                return Response(
-                    content=json.dumps({
-                        "streams": []
-                    }),
-                    headers=CORS_HEADERS
-                )
-
-            episodes = get_archive_episodes()
-
-            # نحصل على الرابط الحقيقي للملف
-            if ep_num in episodes:
-
-                video_url = episodes[ep_num]["url"]
-
-            else:
-
-                video_url = (
-                    f"https://archive.org/download/"
-                    f"{ARCHIVE_ITEM}/"
-                    f"Tom_and_Jerry_{ep_num:03d}.mp4"
-                )
-
-            ep_name = (
-                EPISODE_TITLES[ep_num - 1]
-                if ep_num <= len(EPISODE_TITLES)
-                else f"الحلقة {ep_num}"
-            )
-
-            streams.append({
-
-                "name": "Tom & Jerry",
-
-                "title": (
-                    f"الحلقة {ep_num} - "
-                    f"{ep_name}"
+        if len(parts) < 3:
+            return Response(
+                content=json.dumps(
+                    {"streams": []}
                 ),
-
-                # رابط الفيديو المباشر
-                "url": video_url,
-
-                "behaviorHints": {
-                    "notWebReady": False
-                }
-            })
-
-        except Exception as e:
-
-            print(
-                f"Stream error: {e}"
+                media_type="application/json"
             )
+
+        ep_num = int(parts[2])
+
+        if ep_num < 1 or ep_num > len(EPISODE_TITLES):
+            return Response(
+                content=json.dumps(
+                    {"streams": []}
+                ),
+                media_type="application/json"
+            )
+
+        episodes = get_archive_episodes()
+
+        episode = episodes.get(ep_num)
+
+        if not episode:
+            return Response(
+                content=json.dumps(
+                    {"streams": []},
+                    ensure_ascii=False
+                ),
+                media_type="application/json"
+            )
+
+        mp4_url = episode["url"]
+        episode_name = EPISODE_TITLES[ep_num - 1]
+
+        streams.append({
+            "name": "Direct MP4",
+            "title": (
+                f"تشغيل مباشر - "
+                f"{episode_name}"
+            ),
+            "url": mp4_url,
+            "behaviorHints": {
+                "notWebReady": False
+            }
+        })
+
+    except Exception as error:
+
+        print("Stream error:", error)
 
     return Response(
         content=json.dumps(
-            {
-                "streams": streams
-            },
+            {"streams": streams},
             ensure_ascii=False
         ),
-        headers=CORS_HEADERS
+        media_type="application/json"
     )
+
+
+# =========================================================
+# HEALTH CHECK
+# =========================================================
+
+@app.get("/")
+def home():
+
+    return {
+        "status": "online",
+        "addon": "Tom & Jerry Classic",
+        "version": MANIFEST["version"],
+        "episodes": len(EPISODE_TITLES)
+    }
+
+
+@app.get("/health")
+def health():
+
+    return {
+        "status": "ok",
+        "episodes": len(EPISODE_TITLES)
+    }
